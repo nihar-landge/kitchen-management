@@ -49,3 +49,6 @@ android/app/google-services.json
 lib/firebase_options.dart
 lib/secrets.dart
 firebase.json
+
+# iOS Firebase credentials
+ios/Runner/GoogleService-Info.plist

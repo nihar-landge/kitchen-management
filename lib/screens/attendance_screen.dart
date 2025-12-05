@@ -5,7 +5,9 @@ import 'dart:async'; // Import for Timer
 
 import '../models/student_model.dart';
 import '../models/user_model.dart'; // Import UserRole
+import '../models/user_model.dart'; // Import UserRole
 import '../services/firestore_service.dart';
+import '../widgets/common_app_bar.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -32,6 +34,7 @@ class AttendanceScreenState extends State<AttendanceScreen> {
   String _searchTerm = "";
   bool _sortAbsenteesTop = false;
   int _absentCount = 0;
+  bool _hasUnsavedChanges = false;
 
   bool _isSearching = false;
   final TextEditingController _searchController = TextEditingController();
@@ -128,7 +131,10 @@ class AttendanceScreenState extends State<AttendanceScreen> {
       // print("Error loading students for attendance: $e");
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error loading students: $e"), backgroundColor: Colors.red,));
     }
-    setStateIfMounted(() { _isLoading = false; });
+    setStateIfMounted(() { 
+      _isLoading = false; 
+      _hasUnsavedChanges = false;
+    });
   }
 
   void _filterAndSortDisplayedStudents() {
@@ -215,12 +221,64 @@ class AttendanceScreenState extends State<AttendanceScreen> {
     try {
       await batch.commit();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Attendance saved successfully!')));
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (context.mounted) Navigator.of(context).pop(true);
+          });
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check, color: Colors.green, size: 40),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Saved!",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving attendance: $e'), backgroundColor: Colors.red));
     } finally {
-      setStateIfMounted(() { _isLoading = false; });
+      setStateIfMounted(() { 
+        _isLoading = false; 
+        _hasUnsavedChanges = false;
+      });
       // Optionally re-fetch to confirm, or trust local state if UI updates correctly
       // _loadActiveStudentsAndInitializeAttendance();
     }
@@ -241,83 +299,156 @@ class AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
+  Widget _buildAttendanceButton({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(30),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.transparent,
+          border: Border.all(color: color, width: 1.5),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(icon, color: Colors.white, size: 16),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : color,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // final bool isOwner = widget.userRole == UserRole.owner; // Not used yet, but good to have
 
     return Scaffold(
-      appBar: AppBar(
-        title: AnimatedSwitcher(
+      appBar: CommonAppBar(
+        title: '', // Ignored because titleWidget is provided
+        titleWidget: AnimatedSwitcher(
           duration: const Duration(milliseconds: 300),
           transitionBuilder: (Widget child, Animation<double> animation) {
             return FadeTransition(
               opacity: animation,
-              child: child,
+              child: ScaleTransition(scale: animation, child: child),
             );
           },
-          child: _isSearching
-              ? _buildSearchField()
-              : const Text('Mark Attendance', key: ValueKey('titleText')),
+          child: _hasUnsavedChanges
+              ? ElevatedButton.icon(
+                  key: const ValueKey('saveButton'),
+                  onPressed: _saveAttendance,
+                  icon: const Icon(Icons.save, size: 18),
+                  label: const Text("Save Attendance"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Theme.of(context).primaryColor,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  ),
+                )
+              : Text(
+                  'Mark Attendance',
+                  key: const ValueKey('titleText'),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
         ),
+        centerTitle: false,
         actions: <Widget>[
-          IconButton(
-            icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return ScaleTransition(child: child, scale: animation);
-              },
-              child: _isSearching
-                  ? const Icon(Icons.close, key: ValueKey('closeIcon'))
-                  : const Icon(Icons.search, key: ValueKey('searchIcon')),
+          // Date Selector
+          TextButton.icon(
+            onPressed: () => _selectDate(context),
+            icon: const Icon(Icons.calendar_today, color: Colors.white, size: 16),
+            label: Text(
+              DateFormat('MMM d').format(_selectedDate),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
             ),
+            style: TextButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: 8)),
+          ),
+          // Meal Selector
+          IconButton(
+            icon: Icon(
+              _selectedMealType == MealType.morning ? Icons.wb_sunny : Icons.nightlight_round,
+              color: Colors.white,
+            ),
+            tooltip: _selectedMealType == MealType.morning ? "Morning (Switch to Night)" : "Night (Switch to Morning)",
+            onPressed: () {
+              setStateIfMounted(() {
+                _selectedMealType = _selectedMealType == MealType.morning ? MealType.night : MealType.morning;
+                _loadActiveStudentsAndInitializeAttendance();
+              });
+            },
+          ),
+          // Search Toggle
+          IconButton(
+            icon: Icon(_isSearching ? Icons.close : Icons.search),
             onPressed: () {
               setStateIfMounted(() {
                 _isSearching = !_isSearching;
-                if (_isSearching) {
-                  _searchFocusNode.requestFocus();
-                } else {
+                if (!_isSearching) {
                   _searchFocusNode.unfocus();
                   _searchController.clear();
+                  // Listener will handle clearing _searchTerm and re-filtering
                 }
               });
             },
           ),
         ],
+        bottom: _isSearching
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(60),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: 'Search Name or ID...',
+                      fillColor: Colors.white,
+                      filled: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      suffixIcon: TextButton(
+                        onPressed: () {
+                          _searchController.clear();
+                        },
+                        style: TextButton.styleFrom(foregroundColor: Colors.grey),
+                        child: const Text("Clear", style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
       ),
+      floatingActionButton: null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Card(
-                elevation: 2,
-                child: Padding(
-                    padding: const EdgeInsets.all(12.0),
-                    child: Column(children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: <Widget>[
-                        Text('Date: ${DateFormat.yMMMd().format(_selectedDate)}', style: Theme.of(context).textTheme.titleMedium),
-                        TextButton.icon(icon: const Icon(Icons.calendar_month_outlined), label: const Text('Change Date'), onPressed: () => _selectDate(context))
-                      ]),
-                      const SizedBox(height: 10),
-                      SegmentedButton<MealType>(
-                          segments: const <ButtonSegment<MealType>>[
-                            ButtonSegment<MealType>(value: MealType.morning, label: Text('Morning'), icon: Icon(Icons.wb_sunny_outlined)),
-                            ButtonSegment<MealType>(value: MealType.night, label: Text('Night'), icon: Icon(Icons.nightlight_round_outlined)),
-                          ],
-                          selected: <MealType>{_selectedMealType},
-                          onSelectionChanged: (Set<MealType> newSelection) {
-                            setStateIfMounted(() { _selectedMealType = newSelection.first; });
-                            _loadActiveStudentsAndInitializeAttendance();
-                          },
-                          style: SegmentedButton.styleFrom(
-                            selectedForegroundColor: Theme.of(context).colorScheme.onPrimary,
-                            selectedBackgroundColor: Theme.of(context).colorScheme.primary,
-                          )
-                      ),
-                    ]))
-            ),
-          ),
           Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
@@ -338,7 +469,7 @@ class AttendanceScreenState extends State<AttendanceScreen> {
                       const Text("Show Absentees First"),
                     ],
                   ),
-                  Text("Absent: $_absentCount / ${_displayedStudents.length}", style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text("Absent: $_absentCount / ${_displayedStudents.length}", style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                 ],
               )
           ),
@@ -351,54 +482,51 @@ class AttendanceScreenState extends State<AttendanceScreen> {
                     final student = _displayedStudents[index];
                     final currentStatus = _attendanceStatusMap[student.id] ?? AttendanceStatus.absent;
                     return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 2,
+                        color: Colors.white,
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
                             child: ListTile(
-                                title: Text(student.name),
-                                subtitle: Text("ID: ${student.id}"),
+                                title: Text(student.name, style: Theme.of(context).textTheme.titleMedium),
+                                subtitle: Text("ID: ${student.id}", style: Theme.of(context).textTheme.bodySmall),
                                 trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-                                  ChoiceChip(
-                                    label: const Text('Present'),
-                                    selected: currentStatus == AttendanceStatus.present,
-                                    selectedColor: Colors.green.shade100,
-                                    labelStyle: TextStyle(color: currentStatus == AttendanceStatus.present ? Colors.green.shade800 : Theme.of(context).textTheme.bodySmall?.color),
-                                    onSelected: (sel) {
-                                      if (sel) setStateIfMounted(() {
-                                        _attendanceStatusMap[student.id] = AttendanceStatus.present;
-                                        _calculateAbsentCount();
-                                        if(_sortAbsenteesTop) _filterAndSortDisplayedStudents();
-                                      });
+                                  _buildAttendanceButton(
+                                    label: 'Present',
+                                    isSelected: currentStatus == AttendanceStatus.present,
+                                    color: Colors.green,
+                                    icon: Icons.check,
+                                    onTap: () {
+                                      if (currentStatus != AttendanceStatus.present) {
+                                        setStateIfMounted(() {
+                                          _attendanceStatusMap[student.id] = AttendanceStatus.present;
+                                          _calculateAbsentCount();
+                                          _hasUnsavedChanges = true;
+                                          if (_sortAbsenteesTop) _filterAndSortDisplayedStudents();
+                                        });
+                                      }
                                     },
                                   ),
                                   const SizedBox(width: 8),
-                                  ChoiceChip(
-                                    label: const Text('Absent'),
-                                    selected: currentStatus == AttendanceStatus.absent,
-                                    selectedColor: Colors.red.shade100,
-                                    labelStyle: TextStyle(color: currentStatus == AttendanceStatus.absent ? Colors.red.shade800 : Theme.of(context).textTheme.bodySmall?.color),
-                                    onSelected: (sel) {
-                                      if (sel) setStateIfMounted(() {
-                                        _attendanceStatusMap[student.id] = AttendanceStatus.absent;
-                                        _calculateAbsentCount();
-                                        if(_sortAbsenteesTop) _filterAndSortDisplayedStudents();
-                                      });
+                                  _buildAttendanceButton(
+                                    label: 'Absent',
+                                    isSelected: currentStatus == AttendanceStatus.absent,
+                                    color: Theme.of(context).colorScheme.error,
+                                    icon: Icons.close,
+                                    onTap: () {
+                                      if (currentStatus != AttendanceStatus.absent) {
+                                        setStateIfMounted(() {
+                                          _attendanceStatusMap[student.id] = AttendanceStatus.absent;
+                                          _calculateAbsentCount();
+                                          _hasUnsavedChanges = true;
+                                          if (_sortAbsenteesTop) _filterAndSortDisplayedStudents();
+                                        });
+                                      }
                                     },
                                   ),
                                 ]))));
                   })),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 140.0),
-            child: ElevatedButton.icon(
-                icon: const Icon(Icons.save_alt_rounded),
-                label: const Text('Save All Attendance'),
-                onPressed: _allActiveStudentsForDate.isNotEmpty ? _saveAttendance : null,
-                style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onPrimary)
-                )
-            ),
-          ),
         ],
       ),
     );

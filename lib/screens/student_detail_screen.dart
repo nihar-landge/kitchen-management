@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/student_model.dart';
 import '../models/app_settings_model.dart';
 import '../models/user_model.dart';
+import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 import '../utils/payment_manager.dart';
+import '../widgets/common_app_bar.dart';
 
 class StudentDetailScreen extends StatefulWidget {
   final String studentId;
@@ -141,7 +143,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Text("No periods with outstanding dues available.", style: TextStyle(fontStyle: FontStyle.italic)),
+                      child: Text("No periods with outstanding dues available.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic)),
                     ),
                 ]),
               ),
@@ -621,7 +623,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                           fontSize: 18
                       ),
                       titleTextFormatter: (date, locale) => DateFormat.yMMMM(locale).format(date),
-                      formatButtonTextStyle: TextStyle(color: theme.colorScheme.onSecondary, fontSize: 12.0),
+                      formatButtonTextStyle: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSecondary) ?? TextStyle(color: theme.colorScheme.onSecondary),
                       formatButtonDecoration: BoxDecoration(
                           color: theme.colorScheme.secondary.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(16.0),
@@ -737,7 +739,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
         children: [
           Flexible(
               flex: 2,
-              child: Text(label, style: TextStyle(fontSize: 15, color: Colors.grey[700]))
+              child: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]))
           ),
           SizedBox(width: 10),
           Flexible(
@@ -745,8 +747,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
               child: Text(
                   value,
                   textAlign: TextAlign.end,
-                  style: TextStyle(
-                      fontSize: 15,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: isEmphasized ? FontWeight.bold : FontWeight.normal,
                       color: isEmphasized ? Colors.teal[700] : Colors.black87
                   )
@@ -765,10 +766,10 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
       stream: widget.firestoreService.getAppSettingsStream(),
       builder: (context, appSettingsSnapshot) {
         if (appSettingsSnapshot.connectionState == ConnectionState.waiting && !appSettingsSnapshot.hasData) {
-          return Scaffold(appBar: AppBar(title: Text("Loading Settings...")), body: Center(child: CircularProgressIndicator()));
+          return Scaffold(appBar: CommonAppBar(title: "Loading Settings..."), body: Center(child: CircularProgressIndicator()));
         }
         if (appSettingsSnapshot.hasError) {
-          return Scaffold(appBar: AppBar(title: Text("Error")), body: Center(child: Text('Error loading app settings: ${appSettingsSnapshot.error}')));
+          return Scaffold(appBar: CommonAppBar(title: "Error"), body: Center(child: Text('Error loading app settings: ${appSettingsSnapshot.error}')));
         }
 
         final appSettings = appSettingsSnapshot.data!;
@@ -777,13 +778,13 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
           stream: widget.firestoreService.getStudentStream(widget.studentId),
           builder: (context, studentSnapshot) {
             if (studentSnapshot.connectionState == ConnectionState.waiting) {
-              return Scaffold(appBar: AppBar(title: Text("Loading Student...")), body: Center(child: CircularProgressIndicator()));
+              return Scaffold(appBar: CommonAppBar(title: "Loading Student..."), body: Center(child: CircularProgressIndicator()));
             }
             if (studentSnapshot.hasError) {
-              return Scaffold(appBar: AppBar(title: Text("Error")), body: Center(child: Text('Error: ${studentSnapshot.error}')));
+              return Scaffold(appBar: CommonAppBar(title: "Error"), body: Center(child: Text('Error: ${studentSnapshot.error}')));
             }
             if (!studentSnapshot.hasData || studentSnapshot.data == null) {
-              return Scaffold(appBar: AppBar(title: Text("Not Found")), body: Center(child: Text('Student not found.')));
+              return Scaffold(appBar: CommonAppBar(title: "Not Found"), body: Center(child: Text('Student not found.')));
             }
 
             final student = studentSnapshot.data!;
@@ -796,14 +797,8 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                 return true;
               },
               child: Scaffold(
-                appBar: AppBar(
-                  title: Hero(
-                      tag: 'student_name_${student.id}',
-                      child: Material(
-                          type: MaterialType.transparency,
-                          child: Text(student.name + (student.isArchived ? " (Archived)" : ""))
-                      )
-                  ),
+                appBar: CommonAppBar(
+                  title: student.name + (student.isArchived ? " (Archived)" : ""),
                   actions: [
                     if (isOwner && !student.isArchived)
                       IconButton(
@@ -835,7 +830,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                 child: Text(
                                   "This student's record is ARCHIVED.",
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(fontStyle: FontStyle.italic, color: Colors.black54),
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic, color: Colors.black54),
                                 ),
                               ),
                             ),
@@ -869,7 +864,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                             Text("Billing Period Breakdown:", style: Theme.of(context).textTheme.titleMedium),
                             if (billingPeriods.isEmpty) Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text("No billing periods generated yet.", style: TextStyle(fontStyle: FontStyle.italic)),
+                              child: Text("No billing periods generated yet.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic)),
                             ) else
                               SizedBox(
                                 height: 120,
@@ -881,19 +876,19 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text("${dueItem.monthYearDisplay}:", style: TextStyle(fontWeight: FontWeight.w500)),
+                                          Text("${dueItem.monthYearDisplay}:", style: Theme.of(context).textTheme.titleSmall),
                                           Padding(
                                             padding: const EdgeInsets.only(left: 8.0, top: 2.0),
                                             child: Text(
                                               "(Period: ${DateFormat.yMMMd().format(dueItem.periodStartDate)} - ${DateFormat.yMMMd().format(dueItem.periodEndDate)})",
-                                              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                                             ),
                                           ),
                                           Padding(
                                             padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
                                             child: Text(
                                               "Fee: ₹${dueItem.feeDueForPeriod.toStringAsFixed(0)}, Paid: ₹${dueItem.amountPaidForPeriod.toStringAsFixed(0)}, Rem: ₹${dueItem.remainingForPeriod.toStringAsFixed(0)} (${dueItem.status})",
-                                              style: TextStyle(fontSize: 13, color: dueItem.status == "Paid" ? Colors.green : (dueItem.status == "Partially Paid" ? Colors.orange.shade700 : Colors.red.shade700)),
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: dueItem.status == "Paid" ? Colors.green : (dueItem.status == "Partially Paid" ? Colors.orange.shade700 : Colors.red.shade700)),
                                             ),
                                           ),
                                           if (billingPeriods.last != dueItem) Divider(height: 1, thickness: 0.5),
@@ -1009,12 +1004,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
             children: [
               Text(
                 "Payment History",
-                style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               SizedBox(height: 4),
               Text(
                 student.name,
-                style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               SizedBox(height: 20),
               Flexible(
@@ -1055,12 +1050,12 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                                 children: [
                                   Text(
                                     "₹${entry.amountPaid.toStringAsFixed(0)}",
-                                    style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87),
                                   ),
                                   SizedBox(height: 2),
                                   Text(
                                     DateFormat.yMMMd().format(entry.paymentDate),
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[500], fontWeight: FontWeight.w500),
                                   ),
                                 ],
                               ),
@@ -1070,11 +1065,11 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                               children: [
                                 Text(
                                   "Period Start",
-                                  style: TextStyle(fontSize: 10, color: Colors.grey[400], fontWeight: FontWeight.w600),
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey[400], fontWeight: FontWeight.w600),
                                 ),
                                 Text(
                                   DateFormat.yMMMd().format(entry.cycleStartDate),
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w600),
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700], fontWeight: FontWeight.w600),
                                 ),
                               ],
                             ),
@@ -1095,7 +1090,7 @@ class _StudentDetailScreenState extends State<StudentDetailScreen> {
                     backgroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.grey.shade200)),
                   ),
-                  child: Text("Close", style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.black87)),
+                  child: Text("Close", style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600, color: Colors.black87)),
                 ),
               )
             ],

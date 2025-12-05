@@ -1,8 +1,10 @@
 // lib/screens/dashboard_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../widgets/common_app_bar.dart';
 import '../models/student_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
@@ -58,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _initVoiceService() async {
+    if (kIsWeb) return;
     await Permission.microphone.request();
     await _voiceService.initialize();
   }
@@ -249,8 +252,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showDialog(String title, String content) {
     showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-      content: Text(content, style: GoogleFonts.poppins(fontSize: 18)),
+      title: Text(title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+      content: Text(content, style: Theme.of(context).textTheme.bodyLarge),
       actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text("OK"))],
     ));
   }
@@ -271,25 +274,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final appSettings = appSettingsSnapshot.data ?? AppSettings(feeHistory: []);
 
             return Scaffold(
-              appBar: AppBar(
-                title: AnimatedSwitcher(
-                  duration: Duration(milliseconds: 300),
-                  child: _isListening 
+              appBar: CommonAppBar(
+                title: '', // Ignored because titleWidget is provided
+                titleWidget: _isListening 
                     ? Text(
                         _voiceText, 
                         key: ValueKey(_voiceText),
-                        style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic)
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic, color: Colors.white)
                       )
                     : Text(
                         widget.userRole == UserRole.owner ? 'Owner Dashboard' : 'Guest Dashboard', 
                         key: ValueKey('title'),
-                        style: TextStyle(fontWeight: FontWeight.bold)
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)
                       ),
-                ),
-                backgroundColor: _isListening ? Colors.indigo : Theme.of(context).primaryColor,
-                elevation: 0,
+                backgroundColor: _isListening ? Colors.indigo : null,
                 actions: [
-                  if (widget.userRole == UserRole.owner)
+                  if (widget.userRole == UserRole.owner && !kIsWeb)
                     IconButton(
                       icon: Icon(_isListening ? Icons.stop_circle_outlined : Icons.mic),
                       onPressed: () => _toggleListening(students, appSettings),
@@ -325,20 +325,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     DateTime now = DateTime.now();
-    MealType currentMealType;
-    String mealTypeLabel;
-
-    if (now.hour < 16) {
-      currentMealType = MealType.morning;
-      mealTypeLabel = "Morning";
-    } else {
-      currentMealType = MealType.night;
-      mealTypeLabel = "Night";
-    }
-
     DateTime todayForAttendance = DateTime(now.year, now.month, now.day);
-    int presentTodayCount = 0;
-    int totalActiveTodayForAttendance = 0;
+    
+    int totalActiveToday = 0;
+    int morningPresentCount = 0;
+    int nightPresentCount = 0;
 
     for (var student in students) {
       DateTime serviceStartDateNormalized = DateTime(student.messStartDate.year, student.messStartDate.month, student.messStartDate.day);
@@ -348,19 +339,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
           !todayForAttendance.isAfter(serviceEndDateNormalized);
 
       if (isActiveToday) {
-        totalActiveTodayForAttendance++;
-        bool wasPresentForCurrentMeal = student.attendanceLog.any((entry) {
+        totalActiveToday++;
+        
+        // Check Morning Attendance
+        bool presentMorning = student.attendanceLog.any((entry) {
           DateTime entryDateNormalized = DateTime(entry.date.year, entry.date.month, entry.date.day);
           return entryDateNormalized.isAtSameMomentAs(todayForAttendance) &&
               entry.status == AttendanceStatus.present &&
-              entry.mealType == currentMealType;
+              entry.mealType == MealType.morning;
         });
-        if (wasPresentForCurrentMeal) {
-          presentTodayCount++;
-        }
+        if (presentMorning) morningPresentCount++;
+
+        // Check Night Attendance
+        bool presentNight = student.attendanceLog.any((entry) {
+          DateTime entryDateNormalized = DateTime(entry.date.year, entry.date.month, entry.date.day);
+          return entryDateNormalized.isAtSameMomentAs(todayForAttendance) &&
+              entry.status == AttendanceStatus.present &&
+              entry.mealType == MealType.night;
+        });
+        if (presentNight) nightPresentCount++;
       }
     }
-    String attendanceTodayText = (totalActiveTodayForAttendance - presentTodayCount).toString();
+
+    int morningRemaining = totalActiveToday - morningPresentCount;
+    int nightRemaining = totalActiveToday - nightPresentCount;
 
     List<Map<String, dynamic>> studentNotificationsData = [];
     for (var student in students) {
@@ -400,98 +402,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView(
         padding: EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 100.0),
         children: <Widget>[
-          Text(widget.userRole == UserRole.owner ? 'Hello, ${widget.ownerName}!' : 'Welcome, Guest!', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.black87)),
-          SizedBox(height: 20),
+          // Greeting removed as per user request
 
-          LayoutBuilder(
-              builder: (context, constraints) {
-                bool isNarrowScreen = constraints.maxWidth < 550;
-                List<Widget> firstRowWidgets = [];
-                List<Widget> secondRowWidgets = [];
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left Column: Summary Cards
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: _buildSimpleSummaryCard(
+                          context,
+                          'Active Students',
+                          activeStudentsCount.toString(),
+                          Icons.person_outline,
+                          Colors.teal, // Accent Color
+                          onTap: widget.onNavigateToStudentsScreen,
+                          iconFlexFactor: 3,
+                          valueFlexFactor: 2,
+                        ),
+                      ),
+                      if (widget.userRole == UserRole.owner) ...[
+                        SizedBox(height: 8), // Reduced from 16
+                        Expanded(
+                          child: _buildSimpleSummaryCard(
+                            context,
+                            'Payment Due',
+                            newPaymentsDueCount.toString(),
+                            Icons.credit_card_off_outlined,
+                            Colors.redAccent, // Accent Color
+                            onTap: widget.onNavigateToPaymentsScreenFiltered,
+                            iconFlexFactor: 3,
+                            valueFlexFactor: 2,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                
+                SizedBox(width: 8), // Reduced from 16
 
-                String attendanceCardDisplayTitle;
-                int attendanceIconFlex;
-                int attendanceValueFlex;
-
-                if (widget.userRole == UserRole.owner) {
-                  attendanceCardDisplayTitle = 'Remaining ($mealTypeLabel)';
-                  attendanceIconFlex = 3;
-                  attendanceValueFlex = 2;
-                } else {
-                  attendanceCardDisplayTitle = "";
-                  attendanceIconFlex = 2;
-                  attendanceValueFlex = 8;
-                }
-
-                firstRowWidgets.add(Expanded(child: _buildSimpleSummaryCard(
+                // Right Column: Attendance Progress (Full Height)
+                Expanded(
+                  child: _buildAttendanceProgressCard(
                     context,
-                    'Active Students',
-                    activeStudentsCount.toString(),
-                    Icons.person_outline,
-                    Theme.of(context).primaryColor,
-                    onTap: widget.onNavigateToStudentsScreen,
-                    iconFlexFactor: 3,
-                    valueFlexFactor: 2
-                )));
-                firstRowWidgets.add(SizedBox(width: 10));
-
-                if (widget.userRole == UserRole.owner) {
-                  firstRowWidgets.add(Expanded(child: _buildSimpleSummaryCard(
-                      context,
-                      'Payment Due',
-                      newPaymentsDueCount.toString(),
-                      Icons.credit_card_off_outlined,
-                      Theme.of(context).primaryColor,
-                      onTap: widget.onNavigateToPaymentsScreenFiltered,
-                      iconFlexFactor: 3,
-                      valueFlexFactor: 2
-                  )));
-
-                  if (!isNarrowScreen) {
-                    firstRowWidgets.add(SizedBox(width: 10));
-                    firstRowWidgets.add(Expanded(child: _buildSimpleSummaryCard(
-                        context,
-                        attendanceCardDisplayTitle,
-                        attendanceTodayText,
-                        Icons.event_available_outlined,
-                        Theme.of(context).primaryColor,
-                        onTap: widget.onNavigateToAttendance,
-                        iconFlexFactor: attendanceIconFlex,
-                        valueFlexFactor: attendanceValueFlex
-                    )));
-                  } else {
-                    secondRowWidgets.add(Expanded(child: _buildSimpleSummaryCard(
-                        context,
-                        attendanceCardDisplayTitle,
-                        attendanceTodayText,
-                        Icons.event_available_outlined,
-                        Theme.of(context).primaryColor,
-                        onTap: widget.onNavigateToAttendance,
-                        isFullWidth: true,
-                        iconFlexFactor: attendanceIconFlex,
-                        valueFlexFactor: attendanceValueFlex
-                    )));
-                  }
-                } else {
-                  firstRowWidgets.add(Expanded(child: _buildSimpleSummaryCard(
-                      context,
-                      attendanceCardDisplayTitle,
-                      attendanceTodayText,
-                      Icons.event_available_outlined,
-                      Theme.of(context).primaryColor,
-                      onTap: widget.onNavigateToAttendance,
-                      iconFlexFactor: attendanceIconFlex,
-                      valueFlexFactor: attendanceValueFlex
-                  )));
-                }
-
-                List<Widget> layoutChildren = [Row(children: firstRowWidgets)];
-                if (secondRowWidgets.isNotEmpty) {
-                  layoutChildren.add(SizedBox(height: 10));
-                  layoutChildren.add(Row(children: secondRowWidgets));
-                }
-                return Column(children: layoutChildren);
-              }
+                    now.hour < 16 ? "Morning" : "Night",
+                    now.hour < 16 ? morningRemaining : nightRemaining,
+                    totalActiveToday,
+                    now.hour < 16 ? Icons.wb_sunny_outlined : Icons.nightlight_round,
+                    now.hour < 16 
+                        ? [Colors.blue, Colors.orange] 
+                        : [Colors.indigo, Colors.purple],
+                    isVerticalCenter: true,
+                  ),
+                ),
+              ],
+            ),
           ),
           SizedBox(height: 30),
 
@@ -505,13 +474,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                       icon: Icon(Icons.person_add_alt_1, size: 20),
-                      label: Text('Add', style: TextStyle(fontSize: 14)),
+                      label: Text('Add'),
                       onPressed: widget.onNavigateToAddStudent,
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.teal[600],
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(horizontal: 10, vertical:15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: Theme.of(context).textTheme.labelLarge
                       )
                   ),
                 ),
@@ -519,13 +489,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                       icon: Icon(Icons.edit_calendar_outlined, size: 20),
-                      label: Text('Mark Attendance', style: TextStyle(fontSize: 14)),
+                      label: Text('Mark Attendance'),
                       onPressed: widget.onNavigateToAttendance,
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.indigo[400],
                           foregroundColor: Colors.white,
                           padding: EdgeInsets.symmetric(horizontal: 10, vertical:15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          textStyle: Theme.of(context).textTheme.labelLarge
                       )
                   ),
                 ),
@@ -540,7 +511,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             elevation: 1,
             child: Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Center(child: Text('No upcoming cycle endings${widget.userRole == UserRole.owner ? " or overdue payments" : ""}.', style: TextStyle(fontSize: 15))),
+              child: Center(child: Text('No upcoming cycle endings${widget.userRole == UserRole.owner ? " or overdue payments" : ""}.', style: Theme.of(context).textTheme.bodyMedium)),
             ),
           )
               : Column(
@@ -575,8 +546,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Icons.notifications_active_outlined,
                     color: isUnpaid ? (diffDays < 0 ? Colors.red.shade700 : Colors.orange.shade700) : Colors.green.shade700,
                   ),
-                  title: Text(student.name, style: TextStyle(fontWeight: FontWeight.w500)),
-                  subtitle: Text(subtitleText, style: TextStyle(color: Colors.black87)),
+                  title: Text(student.name, style: Theme.of(context).textTheme.titleMedium),
+                  subtitle: Text(subtitleText, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.black87)),
                   trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[600]),
                   onTap: () => widget.onViewStudentDetails(student),
                 ),
@@ -588,26 +559,102 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildAttendanceProgressCard(
+    BuildContext context,
+    String label,
+    int remaining,
+    int total,
+    IconData icon,
+    List<Color> gradientColors, {
+    bool isVerticalCenter = false,
+  }) {
+    double progress = total == 0 ? 0 : (total - remaining) / total;
+
+    return Card(
+      elevation: 4,
+      shadowColor: Colors.black12,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisAlignment: isVerticalCenter ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
+            CustomPaint(
+              painter: GradientArcPainter(
+                progress: progress,
+                gradientColors: gradientColors,
+                trackColor: Colors.grey.shade100,
+                strokeWidth: 14, // Narrower stroke
+              ),
+              child: SizedBox(
+                width: 180, // Larger radius
+                height: 180,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 40, color: Colors.orange), // Adjusted icon size
+                    const SizedBox(height: 4),
+                    Text(
+                      remaining.toString(),
+                      style: const TextStyle(
+                        fontFamily: 'Poppins',
+                        fontSize: 64, // Larger font for larger circle
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              "Remaining",
+              style: TextStyle(
+                fontFamily: 'Poppins',
+                fontSize: 16,
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSimpleSummaryCard(
       BuildContext context,
       String title,
       String value,
       IconData? icon,
-      Color cardColor,
+      Color accentColor, // Renamed from cardColor
       {VoidCallback? onTap,
         bool isFullWidth = false,
         int iconFlexFactor = 3,
         int valueFlexFactor = 2
       }) {
     return Card(
-      elevation: 2,
-      color: cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      elevation: 4,
+      shadowColor: Colors.black12,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: EdgeInsets.all(12.0),
+          padding: EdgeInsets.all(20.0),
           width: isFullWidth ? double.infinity : null,
           constraints: BoxConstraints(minHeight: 100),
           child: Row(
@@ -619,15 +666,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
                     if (icon != null)
-                      Icon(icon, size: 28, color: Colors.white.withOpacity(0.9)),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(icon, size: 28, color: accentColor),
+                      ),
                     if (icon != null && title.isNotEmpty)
-                      SizedBox(height: 10),
+                      SizedBox(height: 12),
                     if (title.isNotEmpty)
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 2,
                       ),
@@ -641,9 +698,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   alignment: Alignment(0.5, 0.0),
                   child: Text(
                     value,
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontFamily: 'Poppins',
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                    ),
                     textAlign: TextAlign.center,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -654,5 +714,89 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+}
+
+class GradientArcPainter extends CustomPainter {
+  final double progress;
+  final List<Color> gradientColors;
+  final Color trackColor;
+  final double strokeWidth;
+
+  GradientArcPainter({
+    required this.progress,
+    required this.gradientColors,
+    required this.trackColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+    
+    // Draw Track (Background Arc)
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Start from 135 degrees (bottom-left) to 45 degrees (bottom-right)
+    // Total sweep is 270 degrees (3/4 of a circle)
+    const startAngle = 0.75 * 3.14159; // 135 degrees in radians
+    const sweepAngle = 1.5 * 3.14159; // 270 degrees in radians
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      trackPaint,
+    );
+
+    // Draw Progress Gradient Arc with Glow
+    final gradient = SweepGradient(
+      startAngle: startAngle,
+      endAngle: startAngle + sweepAngle,
+      colors: gradientColors,
+      tileMode: TileMode.clamp,
+    );
+
+    final progressPaint = Paint()
+      ..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    // Optional: Add a subtle shadow/glow behind the progress
+    final shadowPaint = Paint()
+      ..color = gradientColors.last.withOpacity(0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth + 4
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle * progress,
+      false,
+      shadowPaint,
+    );
+
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle,
+      sweepAngle * progress,
+      false,
+      progressPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant GradientArcPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+           oldDelegate.gradientColors != gradientColors;
   }
 }

@@ -5,6 +5,7 @@ import '../services/firestore_service.dart';
 import '../models/user_model.dart';
 import 'owner_profile_screen.dart';
 import 'archived_students_screen.dart';
+import '../widgets/common_app_bar.dart';
 
 class SettingsScreen extends StatelessWidget {
   final FirestoreService firestoreService;
@@ -26,7 +27,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: CommonAppBar(title: 'Settings'),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: <Widget>[

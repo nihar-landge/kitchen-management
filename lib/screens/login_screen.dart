@@ -1,5 +1,6 @@
 // lib/screens/login_screen.dart
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/biometric_service.dart';
@@ -40,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _checkBiometrics() async {
+    if (kIsWeb) return;
     bool canAuth = await _biometricService.canAuthenticate();
     if (mounted) {
       setState(() {
@@ -50,6 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   void _loginWithBiometrics() async {
+    if (kIsWeb) return;
     // First, check if biometrics are available and authenticated
     if (await _biometricService.authenticate()) {
       // Read the stored credentials from the device's secure storage

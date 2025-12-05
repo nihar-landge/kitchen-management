@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../widgets/common_app_bar.dart';
 import '../models/student_model.dart';
 import '../services/firestore_service.dart';
 
@@ -31,8 +32,10 @@ class AddStudentScreenState extends State<AddStudentScreen> {
   }
 
   void _saveStudent() async {
+    print("DEBUG: Save Student button clicked");
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
+      print("DEBUG: Form validated and saved. Contact: $_contactNumber");
 
       bool studentAlreadyExists = await widget.firestoreService.studentExists(_contactNumber);
       if (studentAlreadyExists) {
@@ -81,10 +84,14 @@ class AddStudentScreenState extends State<AddStudentScreen> {
       );
 
       try {
+        print("DEBUG: Attempting to add student to Firestore...");
         await widget.firestoreService.addStudent(newStudent);
+        print("DEBUG: Firestore add successful.");
         if (!mounted) return;
-        Navigator.pop(context, true);
+        print("DEBUG: AddStudentScreen popping with contact: $_contactNumber");
+        Navigator.pop(context, _contactNumber);
       } catch (e) {
+        print("DEBUG: Error adding student: $e");
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Error saving student: $e'), backgroundColor: Colors.red));
@@ -101,7 +108,7 @@ class AddStudentScreenState extends State<AddStudentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add New Student')),
+      appBar: CommonAppBar(title: 'Add New Student'),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -149,7 +156,7 @@ class AddStudentScreenState extends State<AddStudentScreen> {
               SizedBox(height: 30),
               ElevatedButton.icon(
                   icon: Icon(Icons.save_alt_outlined), label: Text('Save Student'), onPressed: _saveStudent,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 12), textStyle: TextStyle(fontSize: 16))),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 12), textStyle: Theme.of(context).textTheme.labelLarge)),
               SizedBox(height: 10),
               TextButton(child: Text('Cancel'), onPressed: () => Navigator.pop(context, false)),
             ],

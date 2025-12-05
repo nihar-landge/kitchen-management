@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/student_model.dart';
 import '../models/app_settings_model.dart';
 import '../services/firestore_service.dart';
+import '../services/firestore_service.dart';
 import '../utils/payment_manager.dart';
+import '../widgets/common_app_bar.dart';
 
 class PaymentsScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -41,8 +43,8 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Payment Dues Overview'),
+      appBar: CommonAppBar(
+        title: 'Payment Dues Overview',
         actions: [
           IconButton(
             icon: Icon(_sortByHighestDues ? Icons.arrow_downward : Icons.arrow_upward),
@@ -162,72 +164,70 @@ class _PaymentsScreenState extends State<PaymentsScreen> {
                             shadowColor: Colors.black.withOpacity(0.1),
                             color: Colors.white,
                             margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            child: InkWell(
-                              onTap: () => widget.onViewStudent(student),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(student.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                              SizedBox(height: 2),
-                                              Text('Ends: ${DateFormat.yMMMd().format(student.effectiveMessEndDate)}', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                                            ],
-                                          ),
-                                        ),
-                                        Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
-                                      ],
-                                    ),
-                                    SizedBox(height: 16),
-                                    
-                                    Stack(
-                                      children: [
-                                        Container(
-                                          height: 6,
+                            child: Stack(
+                              children: [
+                                // Fluid Fill Background
+                                Positioned.fill(
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: AnimatedContainer(
+                                          duration: Duration(milliseconds: 500),
+                                          curve: Curves.easeInOut,
+                                          width: constraints.maxWidth * progress,
                                           decoration: BoxDecoration(
-                                            color: Colors.grey[200],
-                                            borderRadius: BorderRadius.circular(10),
+                                            borderRadius: BorderRadius.circular(16),
+                                            color: progress >= 1.0
+                                                ? Color(0xFF34C759).withOpacity(0.2) // Light Green
+                                                : (progress > 0.5
+                                                    ? Color(0xFFFF9500).withOpacity(0.2) // Light Orange
+                                                    : Color(0xFFFF3B30).withOpacity(0.2)), // Light Red
                                           ),
                                         ),
-                                        LayoutBuilder(
-                                          builder: (context, constraints) {
-                                            return Container(
-                                              height: 6,
-                                              width: constraints.maxWidth * progress,
-                                              decoration: BoxDecoration(
-                                                borderRadius: BorderRadius.circular(10),
-                                                // Apple System Colors for a "Premium" flat look
-                                                color: progress >= 1.0
-                                                    ? Color(0xFF34C759)
-                                                    : (progress > 0.5
-                                                        ? Color(0xFFFF9500)
-                                                        : Color(0xFFFF3B30)),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                // Card Content
+                                InkWell(
+                                  onTap: () => widget.onViewStudent(student),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(student.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                                  SizedBox(height: 2),
+                                                  Text('Ends: ${DateFormat.yMMMd().format(student.effectiveMessEndDate)}', style: TextStyle(color: Colors.grey[800], fontSize: 13)),
+                                                ],
                                               ),
-                                            );
-                                          },
+                                            ),
+                                            Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[600]),
+                                          ],
+                                        ),
+                                        SizedBox(height: 12),
+                                        
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text('Paid: ₹${totalPaid.toStringAsFixed(0)}', style: TextStyle(fontSize: 14, color: Colors.green[800], fontWeight: FontWeight.w700)),
+                                            Text('Due: ₹${totalRemaining.toStringAsFixed(0)}', style: TextStyle(fontSize: 14, color: Colors.red[800], fontWeight: FontWeight.w700)),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                    SizedBox(height: 8),
-                                    
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text('Paid: ₹${totalPaid.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.green[700], fontWeight: FontWeight.w600)),
-                                        Text('Due: ₹${totalRemaining.toStringAsFixed(0)}', style: TextStyle(fontSize: 13, color: Colors.red[700], fontWeight: FontWeight.w600)),
-                                      ],
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           );
                         }),

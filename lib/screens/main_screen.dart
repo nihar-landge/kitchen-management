@@ -1,11 +1,13 @@
 // lib/screens/main_screen.dart
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:animations/animations.dart';
 
 import '../models/student_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
 
+import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'students_screen.dart';
 import 'add_student_screen.dart';
@@ -14,6 +16,9 @@ import 'attendance_screen.dart';
 import 'payments_screen.dart';
 import 'settings_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class MainScreen extends StatefulWidget {
   final UserRole userRole;
@@ -32,13 +37,67 @@ class _MainScreenState extends State<MainScreen> {
   late List<Widget> _widgetOptions;
   late List<BottomNavigationBarItem> _navBarItems;
 
-  void _navigateToAddStudentFromDashboard() {
+  void _navigateToAddStudentFromDashboard() async {
     if (widget.userRole == UserRole.owner) {
-      Navigator.push(
+      final result = await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => AddStudentScreen(firestoreService: _firestoreService)),
       );
+
+      if (result != null && result is String) {
+        if (!mounted) return;
+        _showShareDialog(result);
+      }
     }
+  }
+
+  void _showShareDialog(String studentId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Student Added!"),
+        content: Text("Would you like to share the portal link with them now?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("No"),
+          ),
+          ElevatedButton.icon(
+            icon: FaIcon(FontAwesomeIcons.whatsapp, size: 16),
+            label: Text("Share on WhatsApp"),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(context);
+              final String url = "https://kitchen-management-b6d85.web.app/?id=$studentId";
+              final String text = "Hello, here is your personal portal link to check your mess details: $url";
+              
+              // Clean the phone number
+              String phone = studentId.replaceAll(RegExp(r'[^0-9]'), '');
+              // Remove leading zeros
+              if (phone.startsWith('0')) {
+                phone = phone.substring(1);
+              }
+              // Add India country code if length is 10
+              if (phone.length == 10) {
+                phone = "91$phone";
+              }
+              
+              final Uri whatsappUri = Uri.parse("https://wa.me/$phone?text=${Uri.encodeComponent(text)}");
+              
+              try {
+                if (!await launchUrl(whatsappUri, mode: LaunchMode.externalApplication)) {
+                  throw 'Could not launch $whatsappUri';
+                }
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Could not open WhatsApp: $e")),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToStudentDetailFromDashboard(Student student) {
@@ -146,11 +205,28 @@ class _MainScreenState extends State<MainScreen> {
     if (mounted) setState(f);
   }
 
+  late StreamSubscription<User?> _authSubscription;
+
   @override
   void initState() {
     super.initState();
     _buildNavItemsAndWidgetOptions();
     _handleAutomaticRenewals();
+    
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user == null && mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => LoginScreen()),
+          (route) => false,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
   }
 
   @override

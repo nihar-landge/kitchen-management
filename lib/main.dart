@@ -8,6 +8,8 @@ import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'services/connectivity_service.dart';
 import 'widgets/connectivity_banner.dart';
+import 'screens/student_portal_screen.dart';
+import 'services/firestore_service.dart';
 
 const Color skBasilGreen = Color(0xFF38761D);
 const Color skDeepGreen = Color(0xFF2D9A4B);
@@ -172,8 +174,20 @@ class MessManagementApp extends StatelessWidget {
           ),
           useMaterial3: true,
           visualDensity: VisualDensity.adaptivePlatformDensity,
+          pageTransitionsTheme: const PageTransitionsTheme(
+            builders: {
+              TargetPlatform.android: ZoomPageTransitionsBuilder(),
+              TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+              TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+            },
+          ),
         ),
-        home: LoginScreen(),
+        home: Uri.base.queryParameters['id'] != null
+            ? StudentPortalScreen(
+                studentId: Uri.base.queryParameters['id']!,
+                firestoreService: FirestoreService(),
+              )
+            : LoginScreen(),
         builder: (context, child) {
           return Column(
             children: [

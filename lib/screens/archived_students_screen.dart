@@ -4,7 +4,9 @@ import 'package:intl/intl.dart';
 import '../models/student_model.dart';
 import '../models/user_model.dart';
 import '../services/firestore_service.dart';
+import '../services/firestore_service.dart';
 import 'student_detail_screen.dart';
+import '../widgets/common_app_bar.dart';
 
 class ArchivedStudentsScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -39,7 +41,7 @@ class ArchivedStudentsScreenState extends State<ArchivedStudentsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Archived Students')),
+      appBar: CommonAppBar(title: 'Archived Students'),
       body: Column(
         children: <Widget>[
           Padding(

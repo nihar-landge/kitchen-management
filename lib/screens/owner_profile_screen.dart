@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_service.dart';
+import '../services/firestore_service.dart';
 import '../models/app_settings_model.dart';
+import '../widgets/common_app_bar.dart';
 
 class OwnerProfileScreen extends StatefulWidget {
   final FirestoreService firestoreService;
@@ -156,7 +158,7 @@ class _OwnerProfileScreenState extends State<OwnerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.showPasswordSection ? 'Change Password' : 'Owner Profile & Fee Settings')),
+      appBar: CommonAppBar(title: widget.showPasswordSection ? 'Change Password' : 'Owner Profile & Fee Settings'),
       body: StreamBuilder<AppSettings>(
         stream: widget.firestoreService.getAppSettingsStream(),
         builder: (context, snapshot) {

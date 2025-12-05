@@ -2,6 +2,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:string_similarity/string_similarity.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:convert';
 import '../models/student_model.dart';
 import '../secrets.dart';
@@ -19,6 +20,10 @@ class VoiceCommandService {
   }
 
   Future<bool> initialize() async {
+    if (kIsWeb) {
+      print("Voice commands disabled on Web");
+      return false;
+    }
     try {
       _isAvailable = await _speech.initialize(
         onStatus: (status) => print('Speech Status: $status'),
@@ -49,10 +54,12 @@ class VoiceCommandService {
   }
 
   Future<void> speak(String text) async {
+    if (kIsWeb) return;
     await _flutterTts.speak(text);
   }
 
   Future<void> stopSpeaking() async {
+    if (kIsWeb) return;
     await _flutterTts.stop();
   }
 
