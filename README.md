@@ -135,7 +135,13 @@ Contributions are welcome! Please fork the repository and submit a pull request.
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+1. **License Terms**: This project is licensed under the following terms:
+    - Permission is granted to view, use for personal purposes, and contribute to this project via pull requests.
+    - Redistribution, selling, sublicensing, or use for commercial purposes is prohibited without written permission.
+
+2. **Commercial Usage**: To obtain a commercial license, contact: [landgenihar@hotmail.com](mailto:landgenihar@hotmail.com).
+
+For full details, see the [LICENSE](./LICENSE) file.
 
 ---
 
